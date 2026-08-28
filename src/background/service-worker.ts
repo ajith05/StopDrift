@@ -13,6 +13,7 @@ import { enforceOpenTabs } from './tabs.js';
 import { parseHostnameInput } from '../core/hostname.js';
 import { addToBlocklist, removeFromBlocklist, sortSites } from '../core/blocklist.js';
 import { sweepExpired } from '../core/exceptions.js';
+import { describeDuration } from '../core/duration-input.js';
 import { importFromJson } from '../core/transfer.js';
 import { isComplete } from '../core/challenge.js';
 import { permanentChallengeText, temporaryChallengeText } from '../core/templates.js';
@@ -136,7 +137,7 @@ async function handle(command: Command): Promise<CommandResponse> {
       return {
         ok: true,
         snapshot: { state: next, now: Date.now() },
-        message: `${site.hostname} is unblocked for ${minutes} ${pluralize(minutes, 'minute', 'minutes')}.`,
+        message: `${site.hostname} is unblocked for ${describeDuration(minutes)}.`,
       };
     }
 
@@ -192,9 +193,9 @@ async function handle(command: Command): Promise<CommandResponse> {
       return {
         ok: true,
         snapshot: { state: next, now: Date.now() },
-        message: `Temporary unblocks will now last ${
-          next.settings.temporaryUnblockMinutes
-        } ${pluralize(next.settings.temporaryUnblockMinutes, 'minute', 'minutes')}.`,
+        message: `Temporary unblocks will now last ${describeDuration(
+          next.settings.temporaryUnblockMinutes,
+        )}.`,
       };
     }
 

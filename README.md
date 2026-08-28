@@ -139,7 +139,8 @@ I want to unblock example.com. I am really sure.
 Capitalization, punctuation and spacing must match exactly. One wrong character clears the whole
 field and you start again. Pasting and drag-and-drop are disabled.
 
-The default duration is **60 minutes** (configurable, 1–1440). Changing the setting later never
+The default duration is **60 minutes**. You set it as hours plus minutes — either box can be left
+blank, so you can give just one — up to a maximum of 24 hours. Changing the setting later never
 affects an exception that is already running — each exception stores its own absolute expiry time.
 
 To end an exception early, click **Block now**. That requires no challenge — blocking is always easy.
@@ -254,6 +255,7 @@ src/
     protocol.ts         UI <-> service worker message contract
     sync.ts             cross-process (split-incognito) propagation decisions
     current-tab.ts      what the popup's "block this site" button offers
+    duration-input.ts   hours + minutes boxes to a stored minute total
   background/           Chrome adapters
     service-worker.ts   the single coordinator for all state changes
     storage.ts  dnr.ts  alarms.ts  tabs.ts
@@ -315,7 +317,8 @@ The suite covers hostname parsing and validation, apex vs. exact-subdomain match
 generation, redundancy/consolidation, the typing challenges (pure logic *and* DOM behavior),
 temporary-exception expiry and alarm selection, storage normalization of corrupt data,
 theme selection/persistence, import/export, what the popup's block-current-tab button offers for a
-given URL, and that concurrent ruleset rebuilds are serialized rather than colliding on rule IDs.
+given URL, how the duration setting's hours and minutes boxes convert to and from the stored minute
+total and how that total is phrased back to the user, and that concurrent ruleset rebuilds are serialized rather than colliding on rule IDs.
 
 **What automated tests do and do not prove.** They cover this project's own logic, including a
 local model of Chrome's `|...^` URL-filter syntax that verifies the exact-host filters we generate.
@@ -418,16 +421,20 @@ Nothing in this list has been verified by automation.
 44. Repeat check 40 in an Incognito window.
 45. Open the popup on a site with an active temporary unblock → it reports it as already blocked
     rather than offering to add it again.
-46. Open DevTools on the service worker → the Network tab stays empty during normal use.
+46. In the duration setting, enter 2 hours 30 minutes and save → the confirmation reads "2 hours
+    30 minutes", not "150 minutes"; reload the page → the boxes still read 2 and 30. Clear both
+    and save → rejected.
+47. With that setting, start a temporary unblock → the confirmation also names 2 hours 30 minutes.
+48. Open DevTools on the service worker → the Network tab stays empty during normal use.
 
 **Theme**
 
 
-47. Set the theme to Dark → the options page, popup and block page all render dark.
-48. Set it to Light on a device set to dark mode → the extension stays light (explicit wins).
-49. Set it to Auto, then flip the OS light/dark setting → the pages follow it.
-50. Export, then import into a fresh profile → the theme comes across.
-51. Import a file with `"theme": "neon"` → rejected with a message; the current theme is kept.
+49. Set the theme to Dark → the options page, popup and block page all render dark.
+50. Set it to Light on a device set to dark mode → the extension stays light (explicit wins).
+51. Set it to Auto, then flip the OS light/dark setting → the pages follow it.
+52. Export, then import into a fresh profile → the theme comes across.
+53. Import a file with `"theme": "neon"` → rejected with a message; the current theme is kept.
 
 ---
 

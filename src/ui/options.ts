@@ -4,6 +4,11 @@
  */
 import { parseHostnameInput, describeScope } from '../core/hostname.js';
 import { formatRemaining, isTemporarilyUnblocked } from '../core/exceptions.js';
+import {
+  describeDuration,
+  parseDurationInput,
+  splitDuration,
+} from '../core/duration-input.js';
 import { permanentChallengeText, temporaryChallengeText } from '../core/templates.js';
 import { describeImport, exportFileName, serializeExport } from '../core/transfer.js';
 import type { BlockedSite, StoredState } from '../core/state.js';
@@ -25,7 +30,8 @@ const listEl = el<HTMLUListElement>('blocklist');
 const countEl = el<HTMLSpanElement>('count');
 const emptyEl = el<HTMLParagraphElement>('empty');
 
-const durationInput = el<HTMLInputElement>('duration');
+const durationHours = el<HTMLInputElement>('duration-hours');
+const durationMinutes = el<HTMLInputElement>('duration-minutes');
 const durationButton = el<HTMLButtonElement>('duration-btn');
 const durationStatus = el<HTMLDivElement>('duration-status');
 
@@ -169,7 +175,9 @@ function renderEntry(site: BlockedSite, now: number): HTMLLIElement {
 function applySnapshot(state: StoredState | null): void {
   if (!state) return;
   currentState = state;
-  durationInput.value = String(state.settings.temporaryUnblockMinutes);
+  const split = splitDuration(state.settings.temporaryUnblockMinutes);
+  durationHours.value = String(split.hours);
+  durationMinutes.value = String(split.minutes);
   // Keep the selector in step with stored state (an import can change it).
   themeSelect.value = state.settings.theme;
   applyTheme(state.settings.theme);
@@ -204,15 +212,6 @@ function openTemporaryChallenge(hostname: string): void {
   tempWidget.setExpected(temporaryChallengeText(hostname));
   tempDialog.showModal();
   tempWidget.focus();
-}
-
-/** "1 hour", "90 minutes", "2 hours 30 minutes" - used in the confirm button. */
-function describeDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  const hourPart = `${hours} hour${hours === 1 ? '' : 's'}`;
-  return mins === 0 ? hourPart : `${hourPart} ${mins} minute${mins === 1 ? '' : 's'}`;
 }
 
 el<HTMLButtonElement>('temp-confirm').addEventListener('click', () => {
@@ -294,12 +293,14 @@ removeDialog.addEventListener('close', () => {
 
 durationButton.addEventListener('click', () => {
   void (async () => {
-    const minutes = Number.parseInt(durationInput.value, 10);
-    if (!Number.isFinite(minutes)) {
-      setStatus(durationStatus, 'Enter a whole number of minutes between 1 and 1440.', 'error');
+    // The two boxes are only an entry convenience; the stored setting and the
+    // setDuration command are still a single total in minutes.
+    const parsed = parseDurationInput(durationHours.value, durationMinutes.value);
+    if (!parsed.ok) {
+      setStatus(durationStatus, parsed.message, 'error');
       return;
     }
-    const response = await send({ type: 'setDuration', minutes });
+    const response = await send({ type: 'setDuration', minutes: parsed.minutes });
     if (!response.ok) {
       setStatus(durationStatus, response.error, 'error');
       return;

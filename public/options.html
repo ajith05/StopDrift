@@ -44,9 +44,28 @@
 
     <div class="card">
       <h2>Temporary unblock duration</h2>
-      <label for="duration">Minutes (1-1440)</label>
+      <label for="duration-hours">Hours and minutes (up to 24 hours)</label>
       <div class="row">
-        <input type="number" id="duration" min="1" max="1440" step="1" style="max-width: 140px" />
+        <input
+          type="number"
+          id="duration-hours"
+          min="0"
+          max="24"
+          step="1"
+          aria-label="Hours"
+          style="max-width: 80px"
+        />
+        <span class="small muted">hours</span>
+        <input
+          type="number"
+          id="duration-minutes"
+          min="0"
+          max="1440"
+          step="1"
+          aria-label="Minutes"
+          style="max-width: 80px"
+        />
+        <span class="small muted">minutes</span>
         <button id="duration-btn">Save duration</button>
       </div>
       <p class="small muted" style="margin-top: 8px">
