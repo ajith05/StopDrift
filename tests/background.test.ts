@@ -55,6 +55,36 @@ describe('DNR rule synchronization', () => {
     expect(env.rules).toHaveLength(1);
   });
 
+  it('serializes concurrent syncs instead of colliding on rule IDs', async () => {
+    // syncRules reads the existing ruleset, then awaits before replacing it.
+    // Two overlapping calls - a popup command landing while a repair() is in
+    // flight - would otherwise both read the same "existing" list and both try
+    // to add rule ID 1, which Chrome rejects outright.
+    const { syncRules } = await import('../src/background/dnr.js');
+    const state = stateWith([site('example.com', 'apex')]);
+
+    await Promise.all([syncRules(state, NOW), syncRules(state, NOW), syncRules(state, NOW)]);
+
+    expect(env.rules).toHaveLength(1);
+    expect(env.rules.map((r) => r.id)).toEqual([1]);
+  });
+
+  it('keeps syncing after one sync fails, and still reports that failure', async () => {
+    // The serialization chain must not wedge: a single rejected update should
+    // reach its own caller and leave later syncs working.
+    const { syncRules } = await import('../src/background/dnr.js');
+    env.fake.declarativeNetRequest.updateDynamicRules.mockRejectedValueOnce(
+      new Error('transient'),
+    );
+
+    await expect(syncRules(stateWith([site('example.com', 'apex')]), NOW)).rejects.toThrow(
+      'transient',
+    );
+
+    await syncRules(stateWith([site('example.com', 'apex')]), NOW);
+    expect(env.rules).toHaveLength(1);
+  });
+
   it('surfaces a useful error when Chrome rejects the ruleset', async () => {
     const { syncRules } = await import('../src/background/dnr.js');
     env.fake.declarativeNetRequest.updateDynamicRules.mockRejectedValueOnce(

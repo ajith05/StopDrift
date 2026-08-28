@@ -62,6 +62,14 @@ export function installFakeChrome(
           addRules?: { id: number }[];
         }) => {
           dynamicRules = dynamicRules.filter((r) => !removeRuleIds.includes(r.id));
+          // Chrome rejects the whole call if an added ID already exists. Model
+          // that: without it, two overlapping syncs silently produce duplicate
+          // rules here while failing in a real browser.
+          for (const rule of addRules) {
+            if (dynamicRules.some((r) => r.id === rule.id)) {
+              throw new Error(`Rule with id ${rule.id} does not have a unique ID.`);
+            }
+          }
           dynamicRules.push(...addRules);
         },
       ),

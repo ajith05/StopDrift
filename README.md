@@ -78,8 +78,8 @@ already sitting on the site as well as new navigations.
 
 ## How to use it
 
-**Popup** (click the toolbar icon): add a site, see how many sites are blocked, open the full
-management page.
+**Popup** (click the toolbar icon): block the site you are currently on with one click, add a
+site by hand, see how many sites are blocked, open the full management page.
 
 **Options page** (the "Manage blocklist" button): everything else — the full list, temporary
 unblocks, permanent removal, the duration setting, and import/export.
@@ -99,6 +99,26 @@ exact-host rules, so blocking `foo.example.com` does **not** block `bar.foo.exam
 
 Domains with multi-part suffixes are handled correctly via the Public Suffix List:
 `example.co.uk` is an apex domain, not a subdomain.
+
+### Blocking the site you are on
+
+The top of the popup offers a **Block this site** button for the tab you are currently viewing.
+It is a shortcut, not a separate feature: it offers exactly the hostname you would get by typing
+that page's URL into the box below it, shows the same preview, and goes through the same add.
+
+The hostname offered is the tab's exact hostname. On `https://news.ycombinator.com/item?id=1`
+the button offers `news.ycombinator.com` as an exact-subdomain block — never the apex — so the
+shortcut can't quietly block more than the page you are looking at. If you want the whole apex,
+type it in the box.
+
+The button is replaced by a short explanation when there is nothing to offer: on `chrome://`
+pages, the extension's own pages and `file://` URLs; on hosts that can't be blocked at all
+(IP addresses, `localhost`); and on sites already covered, in which case it names the entry
+covering them. A site with an active temporary unblock counts as already blocked — use **Block
+Now** on the options page to end the exception early.
+
+Reading the current tab's URL for this needs no extra permission (see
+[Permissions](#permissions-and-why-each-is-needed)), and the URL is never stored or transmitted.
 
 ### Redundant entries
 
@@ -233,6 +253,7 @@ src/
     messages.ts         local motivational statements
     protocol.ts         UI <-> service worker message contract
     sync.ts             cross-process (split-incognito) propagation decisions
+    current-tab.ts      what the popup's "block this site" button offers
   background/           Chrome adapters
     service-worker.ts   the single coordinator for all state changes
     storage.ts  dnr.ts  alarms.ts  tabs.ts
@@ -293,7 +314,8 @@ npm test
 The suite covers hostname parsing and validation, apex vs. exact-subdomain matching, DNR rule
 generation, redundancy/consolidation, the typing challenges (pure logic *and* DOM behavior),
 temporary-exception expiry and alarm selection, storage normalization of corrupt data,
-theme selection/persistence, and import/export.
+theme selection/persistence, import/export, what the popup's block-current-tab button offers for a
+given URL, and that concurrent ruleset rebuilds are serialized rather than colliding on rule IDs.
 
 **What automated tests do and do not prove.** They cover this project's own logic, including a
 local model of Chrome's `|...^` URL-filter syntax that verifies the exact-host filters we generate.
@@ -383,20 +405,41 @@ Nothing in this list has been verified by automation.
     the extension.
 39. Repeat check 36 after clicking **stop** on the Incognito service worker in `chrome://extensions`,
     to confirm the change still wakes it.
-40. Open DevTools on the service worker → the Network tab stays empty during normal use.
+
+**Blocking the current tab**
+
+40. On an ordinary site, open the popup → it names that site with the right scope; click
+    **Block this site** → the tab redirects to the block page.
+41. Reopen the popup on that site → the button is gone and the card says it is already blocked.
+42. Open the popup on a subdomain of an apex you have blocked → it says it is already blocked and
+    names the apex entry.
+43. Open the popup on `chrome://extensions`, on the block page itself, and on
+    `http://localhost:3000` → each shows an explanation instead of a button, and nothing crashes.
+44. Repeat check 40 in an Incognito window.
+45. Open the popup on a site with an active temporary unblock → it reports it as already blocked
+    rather than offering to add it again.
+46. Open DevTools on the service worker → the Network tab stays empty during normal use.
 
 **Theme**
 
 
-41. Set the theme to Dark → the options page, popup and block page all render dark.
-42. Set it to Light on a device set to dark mode → the extension stays light (explicit wins).
-43. Set it to Auto, then flip the OS light/dark setting → the pages follow it.
-44. Export, then import into a fresh profile → the theme comes across.
-45. Import a file with `"theme": "neon"` → rejected with a message; the current theme is kept.
+47. Set the theme to Dark → the options page, popup and block page all render dark.
+48. Set it to Light on a device set to dark mode → the extension stays light (explicit wins).
+49. Set it to Auto, then flip the OS light/dark setting → the pages follow it.
+50. Export, then import into a fresh profile → the theme comes across.
+51. Import a file with `"theme": "neon"` → rejected with a message; the current theme is kept.
 
 ---
 
 ## Known Chrome behaviors and limitations
+
+- **Dynamic rule updates cannot overlap.** Rebuilding the ruleset reads the current rules and then
+  replaces them. Chrome rejects an update that adds a rule ID already present, so two rebuilds
+  running at once fail with *"Rule with id 1 does not have a unique ID."* Several triggers are
+  fire-and-forget and can land in the same tick — the expiry alarm, a storage change from the other
+  process, a fresh worker activation, a popup command — so `syncRules` in
+  [dnr.ts](src/background/dnr.ts) queues rebuilds onto a single chain. Rebuilds are deterministic
+  and replace the ruleset wholesale, so ordering within the queue does not matter.
 
 - **Go back lands on `about:blank` when there is no history.** **Go back** steps back through the
   tab's own history, so it returns to whatever preceded the blocked navigation — including the new

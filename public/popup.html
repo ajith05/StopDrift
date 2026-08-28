@@ -19,6 +19,19 @@
     <h1>StopDrift</h1>
     <p class="muted small" id="count">Loading…</p>
 
+    <div class="card" id="current-card">
+      <label>This site</label>
+      <div class="preview hidden" id="current-preview">
+        <div class="hostname" id="current-host"></div>
+        <div class="small muted" id="current-scope"></div>
+      </div>
+      <p class="small muted hidden" id="current-note"></p>
+      <div class="row hidden" id="current-row" style="margin-top: 10px">
+        <button class="primary" id="current-btn">Block this site</button>
+      </div>
+      <div class="status" id="current-status" role="status" aria-live="polite"></div>
+    </div>
+
     <div class="card">
       <label for="host-input">Block a site</label>
       <input
