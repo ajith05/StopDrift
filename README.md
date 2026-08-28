@@ -68,6 +68,12 @@ Blocking does not apply to Incognito windows unless you allow it:
 
 The popup and options page show whether this is currently enabled.
 
+Once enabled, Chrome runs StopDrift as two separate processes - one for regular
+windows, one for Incognito - that share a blocklist but not much else. StopDrift
+bridges them, so a site you block in a regular window is blocked in an
+already-open Incognito window too, and the other way round. That covers tabs
+already sitting on the site as well as new navigations.
+
 ---
 
 ## How to use it
@@ -226,6 +232,7 @@ src/
     transfer.ts         import validation / export building
     messages.ts         local motivational statements
     protocol.ts         UI <-> service worker message contract
+    sync.ts             cross-process (split-incognito) propagation decisions
   background/           Chrome adapters
     service-worker.ts   the single coordinator for all state changes
     storage.ts  dnr.ts  alarms.ts  tabs.ts
@@ -369,16 +376,23 @@ Nothing in this list has been verified by automation.
 34. Enable **Allow in Incognito** and confirm blocking works there; the status line updates.
 35. In an Incognito window, visit a blocked site and confirm the **block page itself renders**
     (not just a failed navigation or an error page).
-36. Open DevTools on the service worker → the Network tab stays empty during normal use.
+36. With an Incognito window open on a not-yet-blocked site, block that site from a **regular**
+    window → the open Incognito tab is redirected, and a fresh navigation there is blocked too.
+37. Reverse it: block a site from Incognito and confirm a regular window picks it up.
+38. Permanently remove a block in one window → the other stops blocking it without a reload of
+    the extension.
+39. Repeat check 36 after clicking **stop** on the Incognito service worker in `chrome://extensions`,
+    to confirm the change still wakes it.
+40. Open DevTools on the service worker → the Network tab stays empty during normal use.
 
 **Theme**
 
 
-37. Set the theme to Dark → the options page, popup and block page all render dark.
-38. Set it to Light on a device set to dark mode → the extension stays light (explicit wins).
-39. Set it to Auto, then flip the OS light/dark setting → the pages follow it.
-40. Export, then import into a fresh profile → the theme comes across.
-41. Import a file with `"theme": "neon"` → rejected with a message; the current theme is kept.
+41. Set the theme to Dark → the options page, popup and block page all render dark.
+42. Set it to Light on a device set to dark mode → the extension stays light (explicit wins).
+43. Set it to Auto, then flip the OS light/dark setting → the pages follow it.
+44. Export, then import into a fresh profile → the theme comes across.
+45. Import a file with `"theme": "neon"` → rejected with a message; the current theme is kept.
 
 ---
 
@@ -396,8 +410,13 @@ Nothing in this list has been verified by automation.
   `ERR_BLOCKED_BY_CLIENT`, whether reached by redirect or typed directly into the address bar.
   `split` gives Incognito its own extension process that can render the page.
   `chrome.storage.local` is shared between the regular and Incognito processes, so the blocklist
-  needs no bridging between them. The block page and its subresources (`blocked.js`,
-  `styles.css`) are also declared web-accessible with `use_dynamic_url: false`.
+  itself needs no bridging. Everything *derived* from it does: each process has its own DNR
+  ruleset and can only see its own tabs, and a message from a popup reaches only that popup's
+  process. StopDrift bridges them with a `chrome.storage.onChanged` listener - it fires in both
+  processes, so each rebuilds its own rules and re-checks its own tabs from shared storage. The
+  rebuild deliberately does not write storage unless something actually changed, since that would
+  retrigger the same listener. The block page and its subresources (`blocked.js`, `styles.css`)
+  are also declared web-accessible with `use_dynamic_url: false`.
 - **Alarms can be delayed.** Chrome may hold alarms while the machine sleeps, and MV3 service
   workers are ephemeral. The stored absolute timestamp is authoritative: an exception that lapsed
   during sleep is simply expired on wake, never extended. The extension re-checks and repairs its

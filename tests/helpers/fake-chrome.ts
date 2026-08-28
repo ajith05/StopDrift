@@ -12,6 +12,16 @@ export interface FakeTab {
   url: string;
 }
 
+export interface StorageChange {
+  oldValue?: unknown;
+  newValue?: unknown;
+}
+
+export type StorageListener = (
+  changes: Record<string, StorageChange>,
+  areaName: string,
+) => void;
+
 export function installFakeChrome(
   options: { tabs?: FakeTab[]; incognito?: boolean } = {},
 ) {
@@ -20,14 +30,25 @@ export function installFakeChrome(
   const alarms = new Map<string, { when: number }>();
   const tabs: FakeTab[] = [...(options.tabs ?? [])];
   const alarmListeners: ((alarm: { name: string }) => void)[] = [];
+  const storageListeners: StorageListener[] = [];
 
   const fake = {
     storage: {
       local: {
         get: vi.fn(async (key: string) => ({ [key]: store[key] })),
         set: vi.fn(async (items: Record<string, unknown>) => {
+          // Model Chrome's own behavior: a write emits a change event to every
+          // listener, including the one in the process that made the write.
+          const changes: Record<string, StorageChange> = {};
+          for (const [key, newValue] of Object.entries(items)) {
+            changes[key] = { oldValue: store[key], newValue };
+          }
           Object.assign(store, items);
+          for (const listener of storageListeners) listener(changes, 'local');
         }),
+      },
+      onChanged: {
+        addListener: vi.fn((fn: StorageListener) => storageListeners.push(fn)),
       },
     },
     declarativeNetRequest: {
@@ -87,6 +108,18 @@ export function installFakeChrome(
     fake,
     store,
     tabs,
+    /**
+     * Deliver a change event as if a DIFFERENT process had written it, which is
+     * the split-incognito case the onChanged listener exists to handle.
+     */
+    emitForeignChange(key: string, newValue: unknown) {
+      const changes: Record<string, StorageChange> = {
+        [key]: { oldValue: store[key], newValue },
+      };
+      store[key] = newValue;
+      for (const listener of storageListeners) listener(changes, 'local');
+    },
+    storageListenerCount: () => storageListeners.length,
     get rules() {
       return dynamicRules;
     },

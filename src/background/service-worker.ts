@@ -6,7 +6,7 @@
  * authoritative and makes each operation idempotent and safe to repeat after an
  * MV3 service-worker suspension.
  */
-import { loadState, saveState } from './storage.js';
+import { lastWrittenValue, loadState, saveState } from './storage.js';
 import { syncRules } from './dnr.js';
 import { EXPIRY_ALARM, scheduleNextExpiry } from './alarms.js';
 import { enforceOpenTabs } from './tabs.js';
@@ -16,7 +16,14 @@ import { sweepExpired } from '../core/exceptions.js';
 import { importFromJson } from '../core/transfer.js';
 import { isComplete } from '../core/challenge.js';
 import { permanentChallengeText, temporaryChallengeText } from '../core/templates.js';
-import { clampDuration, isValidDuration, isValidTheme, type StoredState } from '../core/state.js';
+import {
+  clampDuration,
+  isValidDuration,
+  isValidTheme,
+  STORAGE_KEY,
+  type StoredState,
+} from '../core/state.js';
+import { shouldRebuild } from '../core/sync.js';
 import type { Command, CommandResponse } from '../core/protocol.js';
 
 /** Persist + rebuild all derived state (DNR rules, alarm) from storage. */
@@ -53,7 +60,21 @@ async function repair(now: number = Date.now()): Promise<void> {
   const loaded = await loadState();
   const sweep = sweepExpired(loaded.blockedSites, now);
   const state: StoredState = { ...loaded, blockedSites: sweep.sites };
-  await commit(state, now, sweep.changed);
+
+  // Rebuild derived state, but only write storage when the sweep actually
+  // changed something. repair() is triggered by storage.onChanged, so an
+  // unconditional write here would emit another change event and repair
+  // itself forever. The echo guard in core/sync.ts is the second line of
+  // defense; this is the first, and unlike the guard it does not depend on
+  // module state that a service-worker suspension discards.
+  if (sweep.changed) {
+    await commit(state, now, true);
+    return;
+  }
+
+  await syncRules(state, now);
+  await scheduleNextExpiry(state, now);
+  await enforceOpenTabs(state, now);
 }
 
 function pluralize(count: number, one: string, many: string): string {
@@ -232,6 +253,24 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== EXPIRY_ALARM) return;
   // repair() clears everything already expired, restores the DNR rules,
   // re-enforces open tabs and schedules the next expiration.
+  void repair();
+});
+
+/**
+ * Cross-process propagation.
+ *
+ * Under `"incognito": "split"` there are two service workers with two separate
+ * DNR rulesets and two separate views of open tabs, but one shared storage
+ * area. A command handled in one process therefore leaves the other enforcing
+ * a stale blocklist. storage.onChanged fires in BOTH processes, so each side
+ * rebuilds its own derived state from the shared authority.
+ *
+ * shouldRebuild() skips this process's own echo of the write it just made -
+ * commit() already rebuilt everything synchronously, and acting again would
+ * double every DNR write and tab query. See core/sync.ts.
+ */
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (!shouldRebuild(areaName, changes, STORAGE_KEY, lastWrittenValue())) return;
   void repair();
 });
 
