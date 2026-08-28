@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Blocked</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      main {
+        max-width: 480px;
+        text-align: center;
+      }
+      .headline {
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 18px;
+        word-break: break-all;
+      }
+      .message {
+        font-size: 16px;
+        color: var(--muted);
+        margin-bottom: 28px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="headline" id="headline">This site is blocked</p>
+      <p class="message" id="message"></p>
+      <button class="primary" id="back">Go back</button>
+    </main>
+    <script type="module" src="blocked.js"></script>
+  </body>
+</html>

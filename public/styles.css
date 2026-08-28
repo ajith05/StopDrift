@@ -1,0 +1,244 @@
+/*
+ * Theming.
+ *
+ * Every color is declared exactly once as light-dark(<light>, <dark>). Which
+ * half applies is decided by the `color-scheme` property, which shared/theme.ts
+ * sets on <html>:
+ *   auto  -> "light dark", so the device's prefers-color-scheme setting wins
+ *   light -> "light", forcing the light half on any device
+ *   dark  -> "dark",  forcing the dark half on any device
+ *
+ * That single mechanism replaces the old prefers-color-scheme media query plus
+ * [data-theme='dark'] override, which had to repeat the whole dark palette and
+ * could silently drift out of sync. Requires Chrome 123+.
+ */
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#f7f7f8, #16181c);
+  --surface: light-dark(#ffffff, #1f2228);
+  --surface-alt: light-dark(#fafbfc, #24272e);
+  --border: light-dark(#dfe1e5, #383c44);
+  --text: light-dark(#1f2328, #e6e8eb);
+  --muted: light-dark(#5c6370, #9aa1ad);
+  --accent: light-dark(#2f6feb, #5b8dfa);
+  --accent-text: light-dark(#ffffff, #0f1114);
+  --danger: light-dark(#b3261e, #f2665c);
+  --danger-text: light-dark(#ffffff, #1a0d0c);
+  --ok: light-dark(#1a7f4b, #4ac98a);
+  --badge-temp-bg: light-dark(#fff8e5, #3a2f14);
+  --badge-temp-border: light-dark(#e0a800, #a8801f);
+  --badge-temp-text: light-dark(#8a6100, #f0cf85);
+  --backdrop: light-dark(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.6));
+  --radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.5;
+}
+
+h1 {
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 14px;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+p {
+  margin: 0 0 10px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 12px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+input[type="text"],
+input[type="number"],
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+}
+
+textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+button {
+  font: inherit;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--danger-text);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.preview {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+
+.preview .hostname {
+  font-weight: 700;
+  font-size: 15px;
+  word-break: break-all;
+}
+
+.status {
+  min-height: 18px;
+  font-size: 13px;
+}
+
+.status.error {
+  color: var(--danger);
+}
+
+.status.success {
+  color: var(--ok);
+}
+
+ul.blocklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+ul.blocklist li {
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
+}
+
+ul.blocklist li:first-child {
+  border-top: none;
+}
+
+.entry-host {
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--bg);
+}
+
+.badge.temp {
+  border-color: var(--badge-temp-border);
+  color: var(--badge-temp-text);
+  background: var(--badge-temp-bg);
+}
+
+dialog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  max-width: 620px;
+  width: calc(100% - 32px);
+  color: var(--text);
+  background: var(--surface);
+}
+
+dialog::backdrop {
+  background: var(--backdrop);
+}
+
+.challenge-prompt {
+  user-select: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+}
+
+.hidden {
+  display: none !important;
+}

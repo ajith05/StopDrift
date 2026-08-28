@@ -1,0 +1,29 @@
+{
+  "name": "stopdrift",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-only Chrome website blocker with deliberate typing friction.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "dependencies": {
+    "tldts": "^6.1.58"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "esbuild": "^0.24.0",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.7"
+  }
+}

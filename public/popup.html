@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>StopDrift</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        width: 340px;
+        padding: 14px;
+      }
+      .card {
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>StopDrift</h1>
+    <p class="muted small" id="count">Loading…</p>
+
+    <div class="card">
+      <label for="host-input">Block a site</label>
+      <input
+        type="text"
+        id="host-input"
+        placeholder="reddit.com or https://www.reddit.com/r/x"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <div class="preview hidden" id="preview">
+        <div class="hostname" id="preview-host"></div>
+        <div class="small muted" id="preview-scope"></div>
+      </div>
+      <div class="row" style="margin-top: 10px">
+        <button class="primary" id="add-btn" disabled>Add block</button>
+      </div>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="row">
+      <button id="options-btn">Manage blocklist</button>
+    </div>
+    <p class="small muted" id="incognito" style="margin-top: 10px"></p>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

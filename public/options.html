@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>StopDrift — Manage blocklist</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 28px 20px 60px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>StopDrift</h1>
+    <p class="muted small" id="incognito"></p>
+
+    <div class="card">
+      <h2>Add a block</h2>
+      <label for="host-input">Hostname or URL</label>
+      <input
+        type="text"
+        id="host-input"
+        placeholder="example.com or https://www.example.com/page"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <div class="preview hidden" id="preview">
+        <div class="hostname" id="preview-host"></div>
+        <div class="small muted" id="preview-scope"></div>
+      </div>
+      <div class="row" style="margin-top: 10px">
+        <button class="primary" id="add-btn" disabled>Add block</button>
+      </div>
+      <div class="status" id="add-status" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <h2>Blocked sites (<span id="count">0</span>)</h2>
+      <ul class="blocklist" id="blocklist"></ul>
+      <p class="muted small hidden" id="empty">Nothing is blocked yet.</p>
+    </div>
+
+    <div class="card">
+      <h2>Temporary unblock duration</h2>
+      <label for="duration">Minutes (1-1440)</label>
+      <div class="row">
+        <input type="number" id="duration" min="1" max="1440" step="1" style="max-width: 140px" />
+        <button id="duration-btn">Save duration</button>
+      </div>
+      <p class="small muted" style="margin-top: 8px">
+        Changing this affects future temporary unblocks only. Active exceptions keep their original
+        expiry time.
+      </p>
+      <div class="status" id="duration-status" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <h2>Appearance</h2>
+      <label for="theme">Theme</label>
+      <div class="row">
+        <select id="theme">
+          <option value="auto">Auto (follow device)</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+      <div class="status" id="theme-status" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <h2>Import / export</h2>
+      <div class="row">
+        <button id="export-btn">Export JSON</button>
+        <button id="import-btn">Import JSON</button>
+        <input
+          type="file"
+          id="import-file"
+          accept="application/json,.json"
+          class="hidden"
+          aria-label="Import JSON file"
+        />
+      </div>
+      <p class="small muted" style="margin-top: 8px">
+        Import only adds entries. It never deletes anything already on your blocklist.
+      </p>
+      <div class="status" id="transfer-status" role="status" aria-live="polite"></div>
+    </div>
+
+    <!-- Temporary unblock challenge -->
+    <dialog id="temp-dialog">
+      <h2 style="text-transform: none; font-size: 16px; color: var(--text)">
+        Temporarily unblock <span id="temp-host"></span>
+      </h2>
+      <p class="small muted">Type the following text exactly. Pasting is disabled.</p>
+      <div class="challenge-prompt" id="temp-prompt"></div>
+      <input
+        type="text"
+        id="temp-input"
+        aria-labelledby="temp-prompt"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <div class="status error" id="temp-status" role="status" aria-live="polite"></div>
+      <div class="row" style="margin-top: 12px">
+        <button class="primary" id="temp-confirm" disabled>Temporarily unblock</button>
+        <button id="temp-cancel">Cancel</button>
+      </div>
+    </dialog>
+
+    <!-- Permanent removal challenge -->
+    <dialog id="remove-dialog">
+      <h2 style="text-transform: none; font-size: 16px; color: var(--text)">
+        Permanently remove <span id="remove-host"></span>
+      </h2>
+      <p class="small muted">
+        This deletes the block entirely. Type the paragraph below exactly. Pasting is disabled.
+      </p>
+      <div class="challenge-prompt" id="remove-prompt"></div>
+      <textarea
+        id="remove-input"
+        aria-labelledby="remove-prompt"
+        autocomplete="off"
+        spellcheck="false"
+      ></textarea>
+      <div class="status error" id="remove-status" role="status" aria-live="polite"></div>
+      <div class="row" style="margin-top: 12px">
+        <button class="danger" id="remove-confirm" disabled>Permanently remove</button>
+        <button id="remove-cancel">Cancel</button>
+      </div>
+    </dialog>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>
