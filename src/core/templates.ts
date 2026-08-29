@@ -7,7 +7,7 @@
  */
 
 /** Temporary unblock: short, exact, hostname interpolated. */
-export const TEMPORARY_UNBLOCK_TEMPLATE = 'I want to unblock {hostname}. I am really sure.';
+export const TEMPORARY_UNBLOCK_TEMPLATE = 'I want to unblock {hostname}. I am really sure. This is not an impulsive decision. I am not being forced.';
 
 /**
  * Permanent unblock challenge (138 words). Deliberately long: permanent removal is

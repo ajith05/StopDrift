@@ -18,14 +18,18 @@ const expected = temporaryChallengeText('reddit.com');
 describe('challenge text generation', () => {
   it('inserts the hostname into the temporary template', () => {
     expect(temporaryChallengeText('reddit.com')).toBe(
-      'I want to unblock reddit.com. I am really sure.',
+      TEMPORARY_UNBLOCK_TEMPLATE.replace('{hostname}', 'reddit.com'),
     );
+    expect(temporaryChallengeText('reddit.com')).toContain('reddit.com');
+    expect(temporaryChallengeText('reddit.com')).not.toContain('{hostname}');
   });
 
   it('works for subdomains too', () => {
     expect(temporaryChallengeText('www.reddit.com')).toBe(
-      'I want to unblock www.reddit.com. I am really sure.',
+      TEMPORARY_UNBLOCK_TEMPLATE.replace('{hostname}', 'www.reddit.com'),
     );
+    expect(temporaryChallengeText('www.reddit.com')).toContain('www.reddit.com');
+    expect(temporaryChallengeText('www.reddit.com')).not.toContain('{hostname}');
   });
 
   it('inserts the hostname everywhere it appears in the permanent template', () => {
@@ -85,11 +89,14 @@ describe('prefix invariant', () => {
   });
 
   it('rejects missing punctuation', () => {
-    expect(isValidPrefix('I want to unblock reddit.com I am really sure.', expected)).toBe(false);
+    // Drop the sentence-ending period rather than hardcoding the sentence, so
+    // this keeps testing punctuation if the template is reworded. Anchored on
+    // '. ' to avoid matching the dot inside the hostname.
+    expect(isValidPrefix(expected.replace('. ', ' '), expected)).toBe(false);
   });
 
   it('rejects a missing trailing period', () => {
-    expect(isComplete('I want to unblock reddit.com. I am really sure', expected)).toBe(false);
+    expect(isComplete(expected.slice(0, -1), expected)).toBe(false);
   });
 
   it('rejects extra spaces', () => {
