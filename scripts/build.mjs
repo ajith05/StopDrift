@@ -4,9 +4,9 @@
  * Bundles every entry point with esbuild (all dependencies inlined - nothing is
  * fetched at runtime) and copies the static files from public/.
  */
-import { build, context } from 'esbuild';
-import { cpSync, mkdirSync, readFileSync, rmSync, watch as watchDir } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { build, context, transformSync } from 'esbuild';
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, watch as watchDir, writeFileSync } from 'node:fs';
+import { dirname, extname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -57,9 +57,41 @@ const options = {
   define: { __EXTENSION_VERSION__: JSON.stringify(version) },
 };
 
+/**
+ * Copies public/ into dist/, minifying what benefits from it.
+ *
+ * CSS goes through esbuild (already a dependency, so no extra tooling) and the
+ * manifest is re-stringified without indentation. HTML and the icons are copied
+ * byte-for-byte: HTML minification measured at ~184 bytes once the zip's DEFLATE
+ * has already collapsed the indentation, which does not justify pulling in an
+ * HTML parser.
+ *
+ * Skipped entirely in watch mode so `npm run dev` keeps dist/ readable in
+ * DevTools.
+ */
 function copyStatic() {
-  // manifest.json, HTML, CSS and icons ship as-is.
-  cpSync(join(root, 'public'), outdir, { recursive: true });
+  const publicDir = join(root, 'public');
+
+  if (watch) {
+    cpSync(publicDir, outdir, { recursive: true });
+    return;
+  }
+
+  for (const entry of readdirSync(publicDir, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+
+    const from = join(entry.parentPath ?? entry.path, entry.name);
+    const to = join(outdir, relative(publicDir, from));
+    mkdirSync(dirname(to), { recursive: true });
+
+    if (extname(from) === '.css') {
+      writeFileSync(to, transformSync(readFileSync(from, 'utf8'), { loader: 'css', minify: true }).code);
+    } else if (from === join(publicDir, 'manifest.json')) {
+      writeFileSync(to, JSON.stringify(JSON.parse(readFileSync(from, 'utf8'))));
+    } else {
+      cpSync(from, to);
+    }
+  }
 }
 
 if (watch) {
