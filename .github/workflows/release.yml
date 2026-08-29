@@ -97,12 +97,13 @@ jobs:
         if: steps.check.outputs.release == 'true'
         # Zipped from inside dist/ so manifest.json sits at the archive root -
         # the Chrome Web Store rejects an archive with a wrapping folder.
-        run: cd dist && zip -r "../stopdrift-${{ steps.check.outputs.version }}.zip" .
+        run: cd dist && zip -r "../stopdrift-v${{ steps.check.outputs.version }}.zip" .
 
       # A manual run is for exercising this workflow, so its release is created
       # as a draft: unlisted, not sent to watchers, and deletable without a
-      # trace. A real version bump publishes normally. The tag is created either
-      # way - GitHub has no release without one - so a draft still costs a tag.
+      # trace. A draft holds its tag_name as a pending value and creates no git
+      # ref until it is published, so a manual run costs nothing and leaves
+      # nothing behind. A real version bump publishes normally, creating the tag.
       - name: Publish release
         if: steps.check.outputs.release == 'true'
         env:
@@ -120,4 +121,4 @@ jobs:
             --target "${{ github.sha }}" \
             --generate-notes \
             ${draft} \
-            "stopdrift-${{ steps.check.outputs.version }}.zip"
+            "stopdrift-v${{ steps.check.outputs.version }}.zip"
