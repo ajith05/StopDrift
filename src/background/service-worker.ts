@@ -181,7 +181,7 @@ async function handle(command: Command): Promise<CommandResponse> {
 
     case 'setDuration': {
       if (!isValidDuration(command.minutes)) {
-        return { ok: false, error: 'Enter a whole number of minutes between 1 and 1440.' };
+        return { ok: false, error: 'Enter a duration between 1 minute and 24 hours.' };
       }
       const state = await reconcile(now);
       // Active exceptions keep their original absolute timestamp.
