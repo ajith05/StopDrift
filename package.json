@@ -1,6 +1,6 @@
 {
   "name": "stopdrift",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "Local-only Chrome website blocker with deliberate typing friction.",
   "license": "MIT",
