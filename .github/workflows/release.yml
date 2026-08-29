@@ -29,20 +29,27 @@ jobs:
 
       - name: Decide whether to release
         id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
 
-          # A tag that already exists means this version was released before -
-          # a re-run or a manual dispatch. Stop rather than fail on the tag.
-          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null 2>&1; then
-            echo "v$version is already released."
+          # Check for the release, not the tag. A draft release holds its
+          # tag_name as a pending value and creates no git ref until it is
+          # published, so a tag lookup would miss drafts entirely and let
+          # repeated manual runs pile up duplicate drafts for one version.
+          # `gh release view` finds drafts, published releases and tags alike,
+          # but only for an authenticated caller - drafts are invisible
+          # unauthenticated, hence GH_TOKEN above.
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "v$version already has a release (published or draft)."
             echo 'release=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           # workflow_dispatch has no "previous commit" to compare against, and
-          # the tag check above already established this version is unreleased.
+          # the release check above already established this version is unreleased.
           if [ "${{ github.event_name }}" = 'workflow_dispatch' ]; then
             echo "Manual run; releasing v$version as a draft."
             echo "version=$version" >> "$GITHUB_OUTPUT"
