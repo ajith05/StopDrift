@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "StopDrift",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Local-only website blocker with deliberate typing friction. No accounts, no tracking, no network requests.",
   "minimum_chrome_version": "123",
   "permissions": ["storage", "alarms", "declarativeNetRequestWithHostAccess"],
