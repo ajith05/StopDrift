@@ -1,0 +1,116 @@
+# Builds the extension and publishes a GitHub Release whenever the version in
+# package.json changes on main.
+#
+# package.json is the single source of truth for the version (scripts/build.mjs
+# fails the build if public/manifest.json disagrees), so the bump itself is the
+# release signal - there is no tag to remember to push. The tag is an output of
+# this workflow, not an input.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: ['package.json']
+  workflow_dispatch:
+
+# Only to create the tag and the release. Nothing else is needed.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The previous commit is needed to tell a version bump from any other
+          # edit to package.json (a dependency change, a script rename).
+          fetch-depth: 2
+
+      - name: Decide whether to release
+        id: check
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+
+          # A tag that already exists means this version was released before -
+          # a re-run or a manual dispatch. Stop rather than fail on the tag.
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null 2>&1; then
+            echo "v$version is already released."
+            echo 'release=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # workflow_dispatch has no "previous commit" to compare against, and
+          # the tag check above already established this version is unreleased.
+          if [ "${{ github.event_name }}" = 'workflow_dispatch' ]; then
+            echo "Manual run; releasing v$version as a draft."
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+            echo 'release=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          previous=$(git show HEAD^:package.json | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+          if [ "$version" = "$previous" ]; then
+            echo "Version unchanged at $version; nothing to release."
+            echo 'release=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Version bumped $previous -> $version."
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo 'release=true' >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v7
+        if: steps.check.outputs.release == 'true'
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        if: steps.check.outputs.release == 'true'
+        run: npm ci
+
+      # A release built from a commit that does not typecheck or pass its tests
+      # is worse than no release, so both gate the build.
+      - name: Typecheck
+        if: steps.check.outputs.release == 'true'
+        run: npm run typecheck
+
+      - name: Test
+        if: steps.check.outputs.release == 'true'
+        run: npm test
+
+      # Also where the package.json / manifest.json version check fires.
+      - name: Build
+        if: steps.check.outputs.release == 'true'
+        run: npm run build
+
+      - name: Package
+        if: steps.check.outputs.release == 'true'
+        # Zipped from inside dist/ so manifest.json sits at the archive root -
+        # the Chrome Web Store rejects an archive with a wrapping folder.
+        run: cd dist && zip -r "../stopdrift-${{ steps.check.outputs.version }}.zip" .
+
+      # A manual run is for exercising this workflow, so its release is created
+      # as a draft: unlisted, not sent to watchers, and deletable without a
+      # trace. A real version bump publishes normally. The tag is created either
+      # way - GitHub has no release without one - so a draft still costs a tag.
+      - name: Publish release
+        if: steps.check.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          draft=''
+          if [ "${{ github.event_name }}" = 'workflow_dispatch' ]; then
+            draft='--draft'
+            echo "Manual run; creating v${{ steps.check.outputs.version }} as a draft."
+          fi
+
+          gh release create "v${{ steps.check.outputs.version }}" \
+            --title "v${{ steps.check.outputs.version }}" \
+            --target "${{ github.sha }}" \
+            --generate-notes \
+            ${draft} \
+            "stopdrift-${{ steps.check.outputs.version }}.zip"
