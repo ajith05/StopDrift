@@ -1,0 +1,15 @@
+{
+  // The popup, options and blocked pages run in a normal document. See the note
+  // in tsconfig.worker.json for why src/core appears in both.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["chrome"]
+  },
+  "include": [
+    "src/ui/**/*.ts",
+    "src/blocked/**/*.ts",
+    "src/shared/**/*.ts",
+    "src/core/**/*.ts"
+  ]
+}

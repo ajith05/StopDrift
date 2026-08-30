@@ -1,0 +1,16 @@
+{
+  // The service worker runs in a ServiceWorkerGlobalScope: no document, no
+  // window, no localStorage. Checking it against the DOM lib would let a
+  // reference to any of those compile and then throw at runtime.
+  //
+  // src/core is included here AND in tsconfig.ui.json on purpose. Core is
+  // shared by both environments, so checking it twice - once under each lib -
+  // is what stops a DOM reference from being added to it. src/shared is UI-only
+  // (theme.ts writes to document) and is deliberately absent.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker"],
+    "types": ["chrome"]
+  },
+  "include": ["src/background/**/*.ts", "src/core/**/*.ts"]
+}

@@ -1,0 +1,17 @@
+{
+  // Tests span both environments: they import the service worker AND run some
+  // suites under jsdom (@vitest-environment jsdom in challenge-widget and
+  // theme). So this keeps the permissive lib set rather than splitting again -
+  // the environment separation that matters is enforced on src/ by the two
+  // configs above.
+  //
+  // scripts/ is checked here too: it is plain .mjs run by Node, and this is the
+  // only pass that looks at it.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["chrome", "vitest/globals"],
+    "allowJs": true
+  },
+  "include": ["tests/**/*.ts", "tests/**/*.d.ts", "scripts/**/*.mjs"]
+}

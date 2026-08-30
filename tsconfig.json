@@ -1,23 +1,17 @@
 {
+  // Editor-facing config: the permissive superset, so every file in the repo
+  // resolves in an IDE. It is NOT what `npm run typecheck` uses.
+  //
+  // The real check is three passes - tsconfig.worker.json, tsconfig.ui.json and
+  // tsconfig.tests.json - which differ in `lib` so that background code is
+  // checked WITHOUT the DOM. This config has the DOM available everywhere, so a
+  // `document` reference in the service worker looks fine here and still fails
+  // the typecheck. Run `npm run typecheck` before trusting a clean editor.
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "strict": true,
-    "noUncheckedIndexedAccess": false,
-    "noImplicitOverride": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": false,
-    "exactOptionalPropertyTypes": false,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": false,
-    "noEmit": true,
-    "types": ["chrome", "vitest/globals"]
+    "types": ["chrome", "vitest/globals"],
+    "allowJs": true
   },
   "include": ["src/**/*.ts", "tests/**/*.ts", "tests/**/*.d.ts", "scripts/**/*.mjs"]
 }
