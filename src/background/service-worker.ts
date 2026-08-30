@@ -25,7 +25,33 @@ import {
   type StoredState,
 } from '../core/state.js';
 import { shouldRebuild } from '../core/sync.js';
+import { createSerializer } from '../core/serialize.js';
 import type { Command, CommandResponse } from '../core/protocol.js';
+
+/**
+ * Every state mutation in this process runs through here, one at a time.
+ *
+ * A mutation is a read-modify-write with awaits in between: reconcile() reads
+ * storage, the handler computes the next state, commit() writes it back.
+ * saveState overwrites the whole object with no compare-and-swap, so two
+ * overlapping mutations both read the same state and the second write silently
+ * discards the first - an addBlock can vanish.
+ *
+ * That is reachable in normal use, and not only through commands: an alarm, a
+ * storage change from the other process and a fresh worker activation all call
+ * repair(), which does its own read-modify-write. So all four entry points
+ * share ONE serializer - two chains would still let a command interleave with
+ * a repair.
+ *
+ * Only the outermost entry points are wrapped. reconcile() and commit() are
+ * called from inside handle(); wrapping them too would deadlock, because this
+ * chain is not reentrant.
+ *
+ * This is per-process state. Under `"incognito": "split"` the other service
+ * worker holds its own chain and can still clobber this one's write - see the
+ * note on saveState in storage.ts.
+ */
+const mutate = createSerializer();
 
 /** Persist + rebuild all derived state (DNR rules, alarm) from storage. */
 async function commit(state: StoredState, now: number, enforceTabs: boolean): Promise<void> {
@@ -238,7 +264,7 @@ async function handle(command: Command): Promise<CommandResponse> {
 }
 
 chrome.runtime.onMessage.addListener((command: Command, _sender, sendResponse) => {
-  handle(command)
+  mutate(() => handle(command))
     .then(sendResponse)
     .catch((error: unknown) => {
       sendResponse({
@@ -254,7 +280,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== EXPIRY_ALARM) return;
   // repair() clears everything already expired, restores the DNR rules,
   // re-enforces open tabs and schedules the next expiration.
-  void repair();
+  void mutate(() => repair());
 });
 
 /**
@@ -272,13 +298,13 @@ chrome.alarms.onAlarm.addListener((alarm) => {
  */
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (!shouldRebuild(areaName, changes, STORAGE_KEY, lastWrittenValue())) return;
-  void repair();
+  void mutate(() => repair());
 });
 
-chrome.runtime.onStartup.addListener(() => void repair());
-chrome.runtime.onInstalled.addListener(() => void repair());
+chrome.runtime.onStartup.addListener(() => void mutate(() => repair()));
+chrome.runtime.onInstalled.addListener(() => void mutate(() => repair()));
 
 // A fresh service-worker activation also repairs derived state, covering the
 // case where the worker was revived by an event after an alarm was lost or
 // delayed, or after the machine woke from sleep.
-void repair();
+void mutate(() => repair());

@@ -5,6 +5,7 @@
  * idempotent and lets us recover from any partial/stale rule state.
  */
 import { buildRules } from '../core/rules.js';
+import { createSerializer } from '../core/serialize.js';
 import type { StoredState } from '../core/state.js';
 
 /**
@@ -21,18 +22,19 @@ import type { StoredState } from '../core/state.js';
  * activation and a popup command can all land within the same tick.
  *
  * Serializing here rather than at the call sites means every path is covered,
- * including `void repair()`. Rule generation is deterministic and the ruleset
- * is replaced wholesale, so a queued sync that lands after a newer one simply
- * rewrites the same rules - stale ordering cannot corrupt the result.
+ * including callers that do not await. Rule generation is deterministic and
+ * the ruleset is replaced wholesale, so a queued sync that lands after a newer
+ * one simply rewrites the same rules - stale ordering cannot corrupt the
+ * result.
+ *
+ * This is a separate chain from the service worker's mutation serializer, and
+ * deliberately so: syncRules is called from inside a mutation that already
+ * holds that one, and a single reentrant-free chain would deadlock.
  */
-let chain: Promise<void> = Promise.resolve();
+const serialize = createSerializer();
 
 export function syncRules(state: StoredState, now: number = Date.now()): Promise<void> {
-  // Attach to the tail even if a previous sync rejected, so one failure does
-  // not wedge every future sync. Each caller still sees its own outcome.
-  const next = chain.catch(() => undefined).then(() => performSync(state, now));
-  chain = next.catch(() => undefined);
-  return next;
+  return serialize(() => performSync(state, now));
 }
 
 async function performSync(state: StoredState, now: number): Promise<void> {

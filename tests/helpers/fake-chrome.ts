@@ -22,6 +22,12 @@ export type StorageListener = (
   areaName: string,
 ) => void;
 
+export type MessageListener = (
+  message: unknown,
+  sender: unknown,
+  sendResponse: (response: unknown) => void,
+) => boolean | void;
+
 export function installFakeChrome(
   options: { tabs?: FakeTab[]; incognito?: boolean } = {},
 ) {
@@ -31,6 +37,7 @@ export function installFakeChrome(
   const tabs: FakeTab[] = [...(options.tabs ?? [])];
   const alarmListeners: ((alarm: { name: string }) => void)[] = [];
   const storageListeners: StorageListener[] = [];
+  const messageListeners: MessageListener[] = [];
 
   const fake = {
     storage: {
@@ -101,7 +108,9 @@ export function installFakeChrome(
     },
     runtime: {
       getURL: (path: string) => `chrome-extension://fake-id${path}`,
-      onMessage: { addListener: vi.fn() },
+      onMessage: {
+        addListener: vi.fn((fn: MessageListener) => messageListeners.push(fn)),
+      },
       onStartup: { addListener: vi.fn() },
       onInstalled: { addListener: vi.fn() },
     },
@@ -128,6 +137,23 @@ export function installFakeChrome(
       for (const listener of storageListeners) listener(changes, 'local');
     },
     storageListenerCount: () => storageListeners.length,
+    /**
+     * Send a command the way chrome.runtime.onMessage would, and resolve with
+     * the response the worker passes to sendResponse.
+     *
+     * Deliberately does NOT await anything before returning: callers need to be
+     * able to fire two commands without awaiting the first, which is exactly
+     * how Chrome delivers them and exactly the race being tested.
+     */
+    sendMessage(message: unknown): Promise<unknown> {
+      return new Promise((resolve) => {
+        for (const listener of messageListeners) listener(message, {}, resolve);
+      });
+    },
+    /** Fire an alarm as Chrome would, outside any command. */
+    emitAlarm(name: string) {
+      for (const listener of alarmListeners) listener({ name });
+    },
     get rules() {
       return dynamicRules;
     },
