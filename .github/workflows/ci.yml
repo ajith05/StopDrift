@@ -1,0 +1,58 @@
+# Runs the checks on pushes to main and on pull requests.
+#
+# release.yml also runs typecheck, test and build, but only on a version bump.
+# This is the gate for everything else: a push that touches only src/ or tests/
+# never reaches that workflow, so without this it is verified nowhere.
+#
+# The duplication on a bump commit (which triggers both workflows) is deliberate
+# - a release has to be self-gating. If it trusted this workflow instead, a
+# workflow_dispatch on a commit CI never ran would build unverified.
+#
+# Push is scoped to main because that is where work lands directly. A branch is
+# covered once it opens a PR, not while it is only being pushed.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only: this workflow publishes nothing.
+permissions:
+  contents: read
+
+# A second push to the same ref cancels the first rather than running both.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Three passes: worker, ui, tests. The worker pass is checked without the
+      # DOM lib, so a document reference in the service worker fails here even
+      # though an editor reading tsconfig.json shows it as clean.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # Not just a smoke test of esbuild: scripts/build.mjs is where the
+      # package.json / manifest.json version agreement is enforced. Release-only,
+      # a desync would surface at the worst moment - the release itself.
+      - name: Build
+        run: npm run build
