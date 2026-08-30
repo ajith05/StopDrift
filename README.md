@@ -133,7 +133,7 @@ Reading the current tab's URL for this needs no extra permission (see
 In the options page, click **Temporarily unblock** and type, exactly:
 
 ```
-I want to unblock example.com. I am really sure.
+I want to unblock example.com. I am really sure. This is not an impulsive decision. I am not being forced.
 ```
 
 Capitalization, punctuation and spacing must match exactly. One wrong character clears the whole
@@ -473,9 +473,12 @@ Nothing in this list has been verified by automation.
   state on every startup, alarm and service-worker revival, so a lost or late alarm self-corrects.
 - **Chrome pages cannot be blocked.** DNR does not apply to `chrome://` pages, the Web Store, or
   other extensions' pages. Only `http`/`https` navigations are blockable.
-- **Rule quota.** Chrome caps dynamic DNR rules (30,000 at the time of writing). An apex block
-  costs one rule and an exact-subdomain block costs two. If Chrome rejects an update, the error is
-  surfaced and stored state is left untouched rather than corrupted.
+- **Rule quota.** Every blocklist entry costs exactly one dynamic DNR rule, and Chrome caps those
+  at 30,000 at the time of writing. Exact-subdomain entries additionally draw on Chrome's separate
+  regex-rule quota, measured at 1,000, because they are matched with a `regexFilter` covering both
+  schemes in one pattern; that lower ceiling is the binding limit on how many exact-subdomain
+  entries can be active at once. If Chrome rejects an update, the error is surfaced and stored
+  state is left untouched rather than corrupted.
 - **This is friction, not security.** Anyone who controls Chrome can disable or uninstall the
   extension, or edit an unpacked extension with DevTools. That is out of scope by design. The goal
   is to make an impulsive detour inconvenient enough that your earlier deliberate decision wins.

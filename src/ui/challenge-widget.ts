@@ -71,6 +71,12 @@ export function createChallengeWidget(options: ChallengeWidgetOptions): Challeng
   for (const eventName of ['paste', 'drop', 'dragover'] as const) {
     input.addEventListener(eventName, (event) => {
       event.preventDefault();
+      // dragover is here for a different reason than paste and drop: preventing
+      // its default is what stops the field being a valid drop target at all,
+      // so the drop never happens. It also fires continuously while a pointer
+      // moves over the field, so it stays silent - announcing on every move
+      // would thrash the aria-live region during a drag the user may abandon.
+      // The message belongs on the events that are an actual insertion attempt.
       if (eventName !== 'dragover') setStatus('Please type the text yourself.');
     });
   }

@@ -47,7 +47,7 @@ const ALLOWED_SCHEMES = new Set(['http:', 'https:']);
 /**
  * Hostnames that never refer to a public site on the internet. `tldts` treats
  * some of these as ordinary unknown-TLD names, so we reject them explicitly.
- * (RFC 6761 / RFC 8375 special-use names plus Chrome's internal pseudo-hosts.)
+ * (RFC 6761 / RFC 8375 special-use names.)
  */
 const SPECIAL_USE_SUFFIXES = [
   'localhost',
