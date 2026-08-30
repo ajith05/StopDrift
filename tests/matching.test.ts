@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { hostMatchesEntry, findMatchingEntry, hostnameFromUrl, deriveKind } from '../src/core/matching.js';
-import { buildRules, blockedPagePath } from '../src/core/rules.js';
+import { buildRules, blockedPagePath, exactHostnameRegex } from '../src/core/rules.js';
 import type { BlockedSite } from '../src/core/state.js';
 
 const apex = { hostname: 'example.com', kind: 'apex' as const };
@@ -140,13 +140,10 @@ describe('DNR rule generation', () => {
     expect(rules[0].condition.resourceTypes).toEqual(['main_frame']);
   });
 
-  it('uses anchored per-scheme URL filters for subdomain entries', () => {
+  it('uses a single anchored regex filter for subdomain entries', () => {
     const rules = buildRules([site('www.example.com', 'subdomain')], Date.now());
-    expect(rules).toHaveLength(2);
-    expect(rules.map((r) => r.condition.urlFilter)).toEqual([
-      '|http://www.example.com^',
-      '|https://www.example.com^',
-    ]);
+    expect(rules).toHaveLength(1);
+    expect(rules[0].condition.regexFilter).toBe(exactHostnameRegex('www.example.com'));
     expect(rules.every((r) => r.condition.requestDomains === undefined)).toBe(true);
   });
 

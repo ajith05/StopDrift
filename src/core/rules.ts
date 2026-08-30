@@ -23,9 +23,44 @@ export interface GeneratedRule {
   condition: {
     resourceTypes: ['main_frame'];
     requestDomains?: string[];
-    urlFilter?: string;
+    regexFilter?: string;
     isUrlFilterCaseSensitive?: boolean;
   };
+}
+
+/**
+ * Escape a string for literal use inside a regular expression.
+ *
+ * `/` is deliberately NOT escaped: RE2 has no delimiter, so `\/` is not a
+ * defined escape sequence. Stored hostnames are already restricted to
+ * [a-z0-9-.] by parseHostnameInput, so in practice only `.` is ever escaped -
+ * but escaping defensively means this does not silently depend on that.
+ */
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Regex matching http(s) URLs whose host is exactly `hostname`.
+ *
+ *   ^https?://          both schemes, anchored at the start of the URL
+ *   (?:[^/@]*@)?        optional userinfo. Excluding `/` and `@` is what stops
+ *                       `https://www.example.com@evil.com/` from matching,
+ *                       while still blocking `https://user@www.example.com/`,
+ *                       where the real host IS the blocked one.
+ *   <hostname>\.?       the host, allowing the optional trailing DNS root dot
+ *                       that parseHostnameInput and normalizeHostForMatching
+ *                       both strip, so all three agree on `example.com.`
+ *   (?::[0-9]*)?        optional port, possibly empty (`https://host:/`)
+ *   (?:[/?#]|$)         a real host boundary: a URL may run straight from the
+ *                       host into `?` or `#` with no slash.
+ *
+ * A host boundary is deliberately expressed here rather than with a urlFilter
+ * `^` separator: that class also contains `@`, which made userinfo look like
+ * the end of the host.
+ */
+export function exactHostnameRegex(hostname: string): string {
+  return `^https?://(?:[^/@]*@)?${escapeRegex(hostname)}\\.?(?::[0-9]*)?(?:[/?#]|$)`;
 }
 
 /**
@@ -40,11 +75,14 @@ export function blockedPagePath(hostname: string): string {
  * Build the complete ruleset for the currently active blocks.
  *
  * apex entries use `requestDomains`, whose matching already includes every
- * subdomain. Exact-subdomain entries instead use anchored URL filters, one per
- * scheme: `|https://www.example.com^`. The leading `|` anchors to the start of
- * the URL and `^` is a separator that matches `/`, `:`, `?` or end-of-URL, so
- * paths and ports still match while `foo.www.example.com` and
- * `www.example.com.evil.com` do not.
+ * subdomain. Exact-subdomain entries use a single anchored `regexFilter`
+ * covering both schemes - see exactHostnameRegex for the shape and why a
+ * urlFilter separator is not good enough for a host boundary.
+ *
+ * regexFilter rules draw on their own quota, separate from the dynamic rule
+ * limit: MAX_NUMBER_OF_REGEX_RULES, measured at 1000 in Chrome. Only
+ * exact-subdomain entries consume it, one rule each, so the ceiling is 1000
+ * such entries - far beyond a personal blocklist, but not unbounded.
  */
 export function buildRules(sites: BlockedSite[], now: number): GeneratedRule[] {
   const rules: GeneratedRule[] = [];
@@ -64,20 +102,19 @@ export function buildRules(sites: BlockedSite[], now: number): GeneratedRule[] {
         },
       });
     } else {
-      for (const scheme of ['http', 'https'] as const) {
-        rules.push({
-          id: id++,
-          priority: 1,
-          action: { type: 'redirect', redirect },
-          condition: {
-            resourceTypes: ['main_frame'],
-            urlFilter: `|${scheme}://${site.hostname}^`,
-            // Explicit: hostnames are case-insensitive, and the MV3 default for
-            // this field has not been stable across Chrome versions.
-            isUrlFilterCaseSensitive: false,
-          },
-        });
-      }
+      rules.push({
+        id: id++,
+        priority: 1,
+        action: { type: 'redirect', redirect },
+        condition: {
+          resourceTypes: ['main_frame'],
+          regexFilter: exactHostnameRegex(site.hostname),
+          // Explicit: hostnames are case-insensitive, and the MV3 default for
+          // this field has not been stable across Chrome versions. It governs
+          // regexFilter as well as urlFilter.
+          isUrlFilterCaseSensitive: false,
+        },
+      });
     }
   }
 
