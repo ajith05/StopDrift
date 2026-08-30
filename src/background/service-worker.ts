@@ -56,7 +56,28 @@ const mutate = createSerializer();
 /** Persist + rebuild all derived state (DNR rules, alarm) from storage. */
 async function commit(state: StoredState, now: number, enforceTabs: boolean): Promise<void> {
   await saveState(state);
-  await syncRules(state, now);
+
+  try {
+    await syncRules(state, now);
+  } catch (error) {
+    // Storage is already written but the ruleset is not, so the two now
+    // disagree: the UI shows a block that nothing enforces. Storage stays
+    // authoritative - repair() rebuilds rules from it unconditionally.
+    //
+    // Queued rather than awaited, because commit() runs inside a mutation that
+    // already holds `mutate` and calling repair() directly would deadlock. The
+    // rethrow still reaches the user as a failed command; this only shortens
+    // the wait for recovery, which would otherwise depend on an unrelated
+    // trigger firing (shouldRebuild suppresses this process's own echo of the
+    // write above, so the change event does not repair it).
+    //
+    // A deterministic failure - a quota overflow, a malformed rule - fails the
+    // retry identically and the disagreement stands. This narrows the transient
+    // case only.
+    void mutate(() => repair());
+    throw error;
+  }
+
   await scheduleNextExpiry(state, now);
   if (enforceTabs) await enforceOpenTabs(state, now);
 }
